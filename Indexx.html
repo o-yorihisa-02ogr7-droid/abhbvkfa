@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>素数チャレンジ！</title>
+<style>
+body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
+#gameBox { background: white; margin: 40px auto; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 90%; max-width: 400px; }
+button { margin: 8px; padding: 10px 18px; font-size: 18px; border-radius: 10px; cursor: pointer; }
+.correct { color: green; font-weight: bold; }
+.wrong { color: red; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="gameBox">
+  <h1>素数チャレンジ！</h1>
+  <p id="question">ここに問題が出るよ</p>
+  <div id="choices">
+    <button id="primeBtn">素数！</button>
+    <button id="notPrimeBtn">素数じゃない！</button>
+  </div>
+  <p id="result"></p>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzbHEci7i40vWCO4vCyjHHrlmm_euJhibuXorhf6o6yNF617qCgzer8MF8u8R5X48CX/exec";
+
+const TOTAL_QUESTIONS = 10;
+const MIN_DIGITS = 4;
+const MAX_DIGITS = 6;
+
+let questions = [];
+let currentIndex = 0;
+let correctCount = 0;
+let results = [];
+let currentNumber;
+
+// 素数判定
+function isPrime(n){
+  if(n<2) return false;
+  for(let i=2;i<=Math.sqrt(n);i++){
+    if(n%i===0) return false;
+  }
+  return true;
+}
+
+// 4〜6桁奇数生成
+function genRandomOdd(){
+  const digits = Math.floor(Math.random()*(MAX_DIGITS-MIN_DIGITS+1)) + MIN_DIGITS;
+  const min = Math.pow(10,digits-1);
+  const max = Math.pow(10,digits)-1;
+  let n;
+  do { n = Math.floor(Math.random()*(max-min+1))+min; } while(n%2===0);
+  return n;
+}
+
+// 問題作成（素数4〜6個、合計10問）
+function createQuestions(){
+  let primes=[], nonPrimes=[];
+  while(primes.length<4){
+    let n=genRandomOdd();
+    if(isPrime(n) && !primes.includes(n)) primes.push(n);
+  }
+  while(primes.length<4+Math.floor(Math.random()*3)){
+    let n=genRandomOdd();
+    if(isPrime(n) && !primes.includes(n)) primes.push(n);
+  }
+  while(primes.length+nonPrimes.length<TOTAL_QUESTIONS){
+    let n=genRandomOdd();
+    if(!isPrime(n) && !nonPrimes.includes(n)) nonPrimes.push(n);
+  }
+  questions = primes.concat(nonPrimes).map(n=>({number:n,isPrime:isPrime(n)}));
+  // シャッフル
+  for(let i=questions.length-1;i>0;i--){
+    let j=Math.floor(Math.random()*(i+1));
+    [questions[i],questions[j]]=[questions[j],questions[i]];
+  }
+}
+
+// 次の問題表示
+function showNext(){
+  document.getElementById("result").textContent="";
+  if(currentIndex>=TOTAL_QUESTIONS){
+    document.getElementById("question").textContent="ゲーム終了！";
+    document.getElementById("choices").style.display="none";
+    sendResultsEmail(); // 10問まとめて送信
+    return;
+  }
+  currentNumber = questions[currentIndex].number;
+  document.getElementById("question").textContent=`この数字「${currentNumber}」は素数かな？`;
+  document.getElementById("choices").style.display="block";
+}
+
+// 回答処理
+function answer(isPrimeAnswer){
+  const correct = questions[currentIndex].isPrime===isPrimeAnswer;
+  if(correct) correctCount++;
+  results.push({
+    questionIndex: currentIndex+1,
+    number: currentNumber,
+    playerAnswer: isPrimeAnswer?"素数":"素数じゃない",
+    resultText: correct?"Correct":"Wrong"
+  });
+  document.getElementById("result").textContent = `${correct?"正解！":"残念💦"} (${correctCount}/${currentIndex+1})`;
+  document.getElementById("choices").style.display="none";
+
+  currentIndex++;
+  setTimeout(showNext, 700);
+}
+
+// まとめてメール送信
+function sendResultsEmail(){
+  fetch(SCRIPT_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(results)
+  }).catch(err=>console.warn("送信失敗:",err));
+}
+
+// ボタンイベント
+document.getElementById("primeBtn").addEventListener("click",()=>answer(true));
+document.getElementById("notPrimeBtn").addEventListener("click",()=>answer(false));
+
+// 初期化
+createQuestions();
+showNext();
+</script>
+</body>
+</html>
